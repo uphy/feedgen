@@ -1,0 +1,24 @@
+generators:
+  github-issues-obsidian-reminder:
+    feed:
+      title: GitHub Issues - obsidian-reminder
+      link:
+        href: https://github.com/uphy/obsidian-reminder/issues
+      description: GitHub Issues - obsidian-reminder
+      author: 
+        name: uphy
+    type: css-selector
+    url: https://github.com/uphy/obsidian-reminder/issues
+    list: 'div[id*=issue_]'
+    item:
+      title: a[id*=issue]
+      description: null
+      author: .opened-by>a
+      link:
+        selector: a[id*=issue]
+        attr: href
+      content:
+        template: |
+          <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
+          {{ (.LinkContent.Select "td.d-block").First.HTML }}
+    limit: 10
