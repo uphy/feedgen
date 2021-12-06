@@ -6,7 +6,6 @@ import (
 
 type (
 	Field struct {
-		name         string
 		value        FieldValue
 		ResultMapper func(value string) (string, error)
 		// on evaluation
@@ -18,17 +17,29 @@ type (
 	}
 )
 
-func (f *Field) init(context *TemplateContext, name string) error {
-	if err := f.value.init(context); err != nil {
-		return fmt.Errorf("failed to init value: name=%s, err=%w", name, err)
+func (f *Field) init(context *TemplateContext) error {
+	f.resultCache = nil
+	if f.IsDefined() {
+		if err := f.value.init(context); err != nil {
+			return fmt.Errorf("failed to init value: err=%w", err)
+		}
+		return nil
+	} else {
+		return nil
 	}
-	f.name = name
-	return nil
+}
+
+// IsDefined returns true if the user config defined this field.
+func (f *Field) IsDefined() bool {
+	return f.value != nil
 }
 
 func (f *Field) Eval() (string, error) {
 	if f.resultCache != nil {
 		return *f.resultCache, nil
+	}
+	if !f.IsDefined() {
+		return "", nil
 	}
 	result, err := f.value.get()
 	if err != nil {
@@ -38,7 +49,7 @@ func (f *Field) Eval() (string, error) {
 		if r, err := f.ResultMapper(result); err == nil {
 			result = r
 		} else {
-			return "", fmt.Errorf("failed to map template result value: name=%s, err=%w", f.name, err)
+			return "", fmt.Errorf("failed to map template result value: err=%w", err)
 		}
 	}
 	f.resultCache = &result

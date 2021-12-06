@@ -15,10 +15,12 @@ generators:
       description: null
       author: .opened-by>a
       link:
-        selector: a[id*=issue]
-        attr: href
+        href:
+          selector: a[id*=issue]
+          attr: href
       content:
         template: |
           <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
           {{ (.LinkContent.Select "td.d-block").First.HTML }}
+      keys: [title, author]
     limit: 10

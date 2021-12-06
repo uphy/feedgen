@@ -57,15 +57,15 @@ func New() *App {
 	}
 
 	a.Commands = []*cli.Command{
-		app.feedCommand(),
+		app.generateCommand(),
 		app.startServerCommand(),
 	}
 	return app
 }
 
-func (a *App) feedCommand() *cli.Command {
+func (a *App) generateCommand() *cli.Command {
 	return &cli.Command{
-		Name: "feed",
+		Name: "generate",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "format",

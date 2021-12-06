@@ -23,7 +23,8 @@ type (
 		Document    *Selection
 		ItemContent *Selection
 		LinkContent *Selection
-		Fields      map[string]*Field
+		Fields      *ItemConfig
+		allFields   []*Field
 	}
 	fieldYaml struct {
 		Selector string `yaml:"selector"`
@@ -32,34 +33,38 @@ type (
 	}
 )
 
-func newContext(url *url.URL, doc *Selection) *TemplateContext {
-	return &TemplateContext{
+func newContext(url *url.URL, doc *Selection, fields *ItemConfig) (*TemplateContext, error) {
+	ctx := &TemplateContext{
 		URL:         url,
 		Document:    doc,
 		ItemContent: nil,
-		Fields:      make(map[string]*Field),
+		Fields:      fields,
+		allFields: []*Field{
+			&fields.Author,
+			&fields.Content,
+			&fields.Description,
+			&fields.ID,
+			&fields.Title,
+			&fields.Link.HREF,
+		},
 	}
-}
-
-func (c *TemplateContext) addField(name string, t *Field) error {
-	if t != nil {
-		c.Fields[name] = t
-		if err := t.init(c, name); err != nil {
-			return err
+	for _, f := range ctx.allFields {
+		if err := f.init(ctx); err != nil {
+			return nil, err
 		}
 	}
-	return nil
+	return ctx, nil
 }
 
 func (c *TemplateContext) prepare(itemContent *Selection) {
 	c.ItemContent = itemContent
 	c.LinkContent = newSelectionFromFactory(func() (*goquery.Selection, error) {
-		if link, exist := c.Fields["link"]; exist {
-			return loadDocument(link.String())
+		if c.Fields.Link.HREF.IsDefined() {
+			return loadDocument(c.Fields.Link.HREF.String())
 		}
 		return nil, fmt.Errorf("'link' not defined in config file")
 	})
-	for _, f := range c.Fields {
+	for _, f := range c.allFields {
 		f.clearCache()
 	}
 }
@@ -69,15 +74,7 @@ func newTemplateFieldValue(template string) *templateFieldValue {
 }
 
 func (f *templateFieldValue) init(context *TemplateContext) error {
-	if parsed, err := template.New("tmpl").Funcs(template.FuncMap{
-		"get": func(name string) (*Field, error) {
-			if field, exist := context.Fields[name]; exist {
-				return field, nil
-			} else {
-				return nil, nil
-			}
-		},
-	}).Parse(f.rawTemplate); err != nil {
+	if parsed, err := template.New("tmpl").Parse(f.rawTemplate); err != nil {
 		return fmt.Errorf("failed to parse template: err=%w", err)
 	} else {
 		f.parsedTemplate = parsed
