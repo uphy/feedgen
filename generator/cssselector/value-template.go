@@ -3,8 +3,8 @@ package cssselector
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"net/url"
+	"text/template"
 
 	"github.com/PuerkitoBio/goquery"
 )
