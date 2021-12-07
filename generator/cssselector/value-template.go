@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"strings"
 	"text/template"
 
 	"github.com/PuerkitoBio/goquery"
@@ -20,26 +21,27 @@ type (
 	}
 	TemplateContext struct {
 		URL         *url.URL
-		Document    *Selection
+		Content     *Selection
 		ItemContent *Selection
 		LinkContent *Selection
 		Fields      *ItemConfig
 		allFields   []*Field
 	}
-	fieldYaml struct {
-		Selector string `yaml:"selector"`
-		Template string `yaml:"template"`
-		Attr     string `yaml:"attr"`
-	}
 )
 
-func newContext(url *url.URL, doc *Selection, fields *ItemConfig) (*TemplateContext, error) {
+func newContext(url *url.URL, content *Selection, feed *FeedConfig, fields *ItemConfig) (*TemplateContext, error) {
 	ctx := &TemplateContext{
 		URL:         url,
-		Document:    doc,
+		Content:     content,
 		ItemContent: nil,
 		Fields:      fields,
 		allFields: []*Field{
+			&feed.ID,
+			&feed.Title,
+			&feed.Link.Href,
+			&feed.Description,
+			&feed.Author.Name,
+			&feed.Author.Email,
 			&fields.Author,
 			&fields.Content,
 			&fields.Description,
@@ -74,7 +76,10 @@ func newTemplateFieldValue(template string) *templateFieldValue {
 }
 
 func (f *templateFieldValue) init(context *TemplateContext) error {
-	if parsed, err := template.New("tmpl").Parse(f.rawTemplate); err != nil {
+	if parsed, err := template.New("tmpl").Funcs(template.FuncMap{
+		"ReplaceAll": strings.ReplaceAll,
+		"TrimSpace":  strings.TrimSpace,
+	}).Parse(f.rawTemplate); err != nil {
 		return fmt.Errorf("failed to parse template: err=%w", err)
 	} else {
 		f.parsedTemplate = parsed

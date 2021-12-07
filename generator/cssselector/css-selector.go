@@ -15,9 +15,22 @@ import (
 type (
 	CSSSelectorConfig struct {
 		URL   string     `yaml:"url"`
+		Feed  FeedConfig `yaml:"feed"`
 		List  string     `yaml:"list"`
 		Item  ItemConfig `yaml:"item"`
 		Limit int        `yaml:"limit"`
+	}
+	FeedConfig struct {
+		ID    Field `yaml:"id"`
+		Title Field `yaml:"title"`
+		Link  struct {
+			Href Field `yaml:"href"`
+		} `yaml:"link"`
+		Description Field `yaml:"description"`
+		Author      struct {
+			Name  Field `yaml:"name"`
+			Email Field `yaml:"email"`
+		} `yaml:"author"`
 	}
 	ItemConfig struct {
 		ID          Field `yaml:"id"`
@@ -55,7 +68,7 @@ func (g *CSSSelectorFeedGenerator) Generate(feed *feeds.Feed, context *generator
 		return err
 	}
 
-	templateContext, err := newContext(baseURL, doc, &g.config.Item)
+	templateContext, err := newContext(baseURL, doc, &g.config.Feed, &g.config.Item)
 	if err != nil {
 		return err
 	}
@@ -72,6 +85,25 @@ func (g *CSSSelectorFeedGenerator) Generate(feed *feeds.Feed, context *generator
 		return link, nil
 	}
 
+	/*
+	 * Feed
+	 */
+	feed.Id = g.config.Feed.ID.String()
+	feed.Title = g.config.Feed.Title.String()
+	feed.Link = &feeds.Link{
+		Href: g.config.Feed.Link.Href.String(),
+	}
+	feed.Author = &feeds.Author{
+		Name:  g.config.Feed.Author.Name.String(),
+		Email: g.config.Feed.Author.Email.String(),
+	}
+	feed.Description = g.config.Feed.Description.String()
+	feed.Created = time.Now()
+	feed.Updated = feed.Created
+
+	/*
+	 * Items
+	 */
 	itemContents, err := doc.List(g.config.List)
 	if err != nil {
 		return err

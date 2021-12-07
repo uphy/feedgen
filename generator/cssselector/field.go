@@ -2,6 +2,7 @@ package cssselector
 
 import (
 	"fmt"
+	"strings"
 )
 
 type (
@@ -14,6 +15,12 @@ type (
 	FieldValue interface {
 		init(templateContext *TemplateContext) error
 		get() (string, error)
+	}
+	fieldYaml struct {
+		Selector string `yaml:"selector"`
+		Attr     string `yaml:"attr"`
+		Template string `yaml:"template"`
+		Constant string `yaml:"constant"`
 	}
 )
 
@@ -45,6 +52,7 @@ func (f *Field) Eval() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	result = trimSpace(result)
 	if f.ResultMapper != nil {
 		if r, err := f.ResultMapper(result); err == nil {
 			result = r
@@ -54,6 +62,10 @@ func (f *Field) Eval() (string, error) {
 	}
 	f.resultCache = &result
 	return result, nil
+}
+
+func trimSpace(s string) string {
+	return strings.TrimSpace(s)
 }
 
 func (f *Field) String() string {
@@ -69,19 +81,23 @@ func (f *Field) clearCache() {
 }
 
 func (f *Field) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var templateYaml fieldYaml
-	if err := unmarshal(&templateYaml); err == nil {
-		if templateYaml.Selector != "" && templateYaml.Template != "" {
+	var fieldYaml fieldYaml
+	if err := unmarshal(&fieldYaml); err == nil {
+		if fieldYaml.Selector != "" && fieldYaml.Template != "" {
 			return fmt.Errorf("cannot use both 'selector' and 'template'")
 		}
-		if templateYaml.Template != "" {
-			if templateYaml.Attr != "" {
+		if fieldYaml.Template != "" {
+			if fieldYaml.Attr != "" {
 				return fmt.Errorf("cannot use both 'template' and 'attr'")
 			}
-			f.value = newTemplateFieldValue(templateYaml.Template)
+			f.value = newTemplateFieldValue(fieldYaml.Template)
 			return nil
 		}
-		f.value = newSelectorFieldValue(templateYaml.Selector, templateYaml.Attr)
+		if fieldYaml.Constant != "" {
+			f.value = newConstantFieldValue(fieldYaml.Constant)
+			return nil
+		}
+		f.value = newSelectorFieldValue(fieldYaml.Selector, fieldYaml.Attr)
 		return nil
 	}
 

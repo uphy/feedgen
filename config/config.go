@@ -14,18 +14,6 @@ type (
 	GeneratorConfig struct {
 		Type    string
 		Options GeneratorOptions
-		Feed    *FeedConfig
-	}
-	FeedConfig struct {
-		Title string `yaml:"title"`
-		Link  struct {
-			Href string `yaml:"href"`
-		} `yaml:"link"`
-		Description string `yaml:"description"`
-		Author      struct {
-			Name  string `yaml:"name"`
-			Email string `yaml:"email"`
-		} `yaml:"author"`
 	}
 	GeneratorOptions map[string]interface{}
 )
@@ -64,20 +52,6 @@ func (c *GeneratorConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 		return fmt.Errorf("'type' must be a string: %v", m)
 	}
 
-	if f, ok := m["feed"]; ok {
-		feedConfigYaml, err := yaml.Marshal(f)
-		if err != nil {
-			return err
-		}
-		var feedConfig FeedConfig
-		if err := yaml.Unmarshal(feedConfigYaml, &feedConfig); err != nil {
-			return err
-		}
-		c.Feed = &feedConfig
-		delete(m, "feed")
-	} else {
-		return fmt.Errorf("'feed' is required: %v", m)
-	}
 	c.Options = m
 	return nil
 }

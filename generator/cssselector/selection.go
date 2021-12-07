@@ -89,6 +89,10 @@ func (d *Selection) HTML() (string, error) {
 	return d.selection().Html()
 }
 
-func (d *Selection) String() string {
+func (d *Selection) Text() string {
 	return d.selection().Text()
+}
+
+func (d *Selection) String() string {
+	return d.Text()
 }

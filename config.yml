@@ -1,16 +1,21 @@
 generators:
   github-issues-obsidian-reminder:
-    feed:
-      title: GitHub Issues - obsidian-reminder
-      link:
-        href: https://github.com/uphy/obsidian-reminder/issues
-      description: GitHub Issues - obsidian-reminder
-      author: 
-        name: uphy
     type: css-selector
     url: https://github.com/uphy/obsidian-reminder/issues
+    feed:
+      title: 
+        template: GitHub Issues - {{ (.Content.Select "#repository-container-header [itemprop='name']>a").Text }}
+      link:
+        href: 
+          template: '{{ .URL }}'
+      author: 
+        name: 
+          constant: GitHub
     list: 'div[id*=issue_]'
     item:
+      id:
+        selector: a[id*=issue]
+        attr: id
       title: a[id*=issue]
       description: null
       author: .opened-by>a
@@ -24,3 +29,26 @@ generators:
           {{ (.LinkContent.Select "td.d-block").First.HTML }}
       keys: [title, author]
     limit: 10
+  doorkeeper-jsug:
+    type: css-selector
+    feed:
+      title: 
+        template: 'Doorkeeper Upcoming events - {{ .Content.Select ".community-title>a" }}'
+      link:
+        href: 
+          template: '{{ .URL }}'
+      author: 
+        name:
+          constant: Doorkeeper
+    url: https://jjug.doorkeeper.jp/events/upcoming
+    list: 'div.global-event-list-day'
+    item:
+      title: .events-list-item-title
+      description:
+        template: |
+          {{ ReplaceAll (.ItemContent.Select ".events-list-item-time").Text "\n" " " | TrimSpace }}
+          {{ ReplaceAll (.ItemContent.Select "div.events-list-item-venue").Text "\n" " " | TrimSpace -}}
+      link:
+        href:
+          selector: .events-list-item-title a
+          attr: href

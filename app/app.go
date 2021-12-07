@@ -27,14 +27,23 @@ func New() *App {
 			Aliases: []string{"c"},
 			Value:   "config.yml",
 		},
+		&cli.BoolFlag{
+			Name:    "no-cache",
+			Aliases: []string{"n"},
+			Value:   false,
+		},
 	}
 	a.Before = func(c *cli.Context) error {
 		// load repository
-		repository, err := repo.NewBadgerRepository("data")
-		if err != nil {
-			return err
+		if c.Bool("no-cache") {
+			app.repository = repo.NewMemoryRepository()
+		} else {
+			repository, err := repo.NewBadgerRepository("data")
+			if err != nil {
+				return err
+			}
+			app.repository = repository
 		}
-		app.repository = repository
 
 		// load config
 		configFile := c.String("config")
@@ -43,7 +52,7 @@ func New() *App {
 			return fmt.Errorf("failed to load config file: configFile=%s, err=%w", configFile, err)
 		}
 		// build feed generator
-		gen := generator.New(repository)
+		gen := generator.New(app.repository)
 		gen.Register("css-selector", cssselector.CSSSelectorFeedGenerator{})
 		if err := gen.LoadConfig(cnf); err != nil {
 			return err
