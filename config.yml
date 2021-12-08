@@ -34,7 +34,7 @@ generators:
     item:
       title: .events-list-item-title
       description: |
-          {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | TrimSpace }}
-          {{ .ItemContent.Select "div.events-list-item-venue" | Text | ReplaceAll "\n" " " | TrimSpace -}}
+          {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | Trim }}
+          {{ .ItemContent.Select "div.events-list-item-venue" | Text | ReplaceAll "\n" " " | Trim -}}
       link:
         href: '{{ .ItemContent.Select ".events-list-item-title a" | Attr "href"}}'

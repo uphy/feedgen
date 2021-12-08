@@ -53,7 +53,7 @@ func New() *App {
 		}
 		// build feed generator
 		gen := generator.New(app.repository)
-		gen.Register("template", template.CSSSelectorFeedGenerator{})
+		gen.Register("template", template.TemplateFeedGenerator{})
 		if err := gen.LoadConfig(cnf); err != nil {
 			return err
 		}

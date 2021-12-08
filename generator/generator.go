@@ -6,13 +6,15 @@ import (
 
 	"github.com/uphy/feedgen/config"
 	"github.com/uphy/feedgen/repo"
+	"github.com/uphy/feedgen/template"
 
 	"github.com/gorilla/feeds"
 )
 
 type (
 	Context struct {
-		Repository *repo.Repository
+		Repository      *repo.Repository
+		TemplateContext *template.TemplateContext
 	}
 
 	FeedGenerator interface {
@@ -25,18 +27,20 @@ type (
 	}
 
 	FeedGenerators struct {
-		registry   map[string]func() FeedGenerator
-		generators map[string]*feedGeneratorWrapper
-		context    *Context
+		registry        map[string]func() FeedGenerator
+		generators      map[string]*feedGeneratorWrapper
+		repository      *repo.Repository
+		templateContext *template.TemplateContext
 	}
 )
 
 func New(repository *repo.Repository) *FeedGenerators {
 	f := &FeedGenerators{
-		registry:   make(map[string]func() FeedGenerator),
-		generators: make(map[string]*feedGeneratorWrapper),
+		registry:        make(map[string]func() FeedGenerator),
+		generators:      make(map[string]*feedGeneratorWrapper),
+		repository:      repository,
+		templateContext: template.NewRootTemplateContext(),
 	}
-	f.context = &Context{repository}
 	return f
 }
 
@@ -83,7 +87,9 @@ func (f *FeedGenerators) Generate(name string) (*feeds.Feed, error) {
 	gen := wrapper.generator
 	feed := new(feeds.Feed)
 
-	if err := gen.Generate(feed, f.context); err != nil {
+	context := &Context{f.repository, f.templateContext.Child()}
+	context.TemplateContext.Set("Feed", feed)
+	if err := gen.Generate(feed, context); err != nil {
 		return nil, err
 	}
 	return feed, nil

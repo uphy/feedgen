@@ -1,55 +1,58 @@
 package template
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/uphy/feedgen/config"
 	"github.com/uphy/feedgen/generator"
 	"github.com/uphy/feedgen/repo"
+	tmpl "github.com/uphy/feedgen/template"
 
 	"github.com/gorilla/feeds"
 )
 
 type (
-	CSSSelectorConfig struct {
-		URL   string     `yaml:"url"`
-		Feed  FeedConfig `yaml:"feed"`
-		List  string     `yaml:"list"`
-		Item  ItemConfig `yaml:"item"`
-		Limit int        `yaml:"limit"`
+	TemplateFeedGeneratorConfig struct {
+		URL   tmpl.TemplateField `yaml:"url"`
+		Feed  FeedConfig         `yaml:"feed"`
+		List  tmpl.TemplateField `yaml:"list"`
+		Item  ItemConfig         `yaml:"item"`
+		Limit int                `yaml:"limit"`
 	}
 	FeedConfig struct {
-		ID    Field `yaml:"id"`
-		Title Field `yaml:"title"`
+		ID    tmpl.TemplateField `yaml:"id"`
+		Title tmpl.TemplateField `yaml:"title"`
 		Link  struct {
-			Href Field `yaml:"href"`
+			Href tmpl.TemplateField `yaml:"href"`
 		} `yaml:"link"`
-		Description Field `yaml:"description"`
+		Description tmpl.TemplateField `yaml:"description"`
 		Author      struct {
-			Name  Field `yaml:"name"`
-			Email Field `yaml:"email"`
+			Name  tmpl.TemplateField `yaml:"name"`
+			Email tmpl.TemplateField `yaml:"email"`
 		} `yaml:"author"`
 	}
 	ItemConfig struct {
-		ID          Field `yaml:"id"`
-		Title       Field `yaml:"title"`
-		Description Field `yaml:"description"`
-		Author      Field `yaml:"author"`
-		Content     Field `yaml:"content"`
+		ID          tmpl.TemplateField `yaml:"id"`
+		Title       tmpl.TemplateField `yaml:"title"`
+		Description tmpl.TemplateField `yaml:"description"`
+		Author      tmpl.TemplateField `yaml:"author"`
+		Content     tmpl.TemplateField `yaml:"content"`
 		Link        struct {
-			HREF Field `yaml:"href"`
+			HREF tmpl.TemplateField `yaml:"href"`
 		} `yaml:"link"`
 		Keys []string `yaml:"keys"`
 	}
-	CSSSelectorFeedGenerator struct {
-		config *CSSSelectorConfig
+	TemplateFeedGenerator struct {
+		config *TemplateFeedGeneratorConfig
 	}
 )
 
-func (g *CSSSelectorFeedGenerator) LoadOptions(options config.GeneratorOptions) error {
-	var c CSSSelectorConfig
+func (g *TemplateFeedGenerator) LoadOptions(options config.GeneratorOptions) error {
+	var c TemplateFeedGeneratorConfig
 	if err := options.Unmarshal(&c); err != nil {
 		return err
 	}
@@ -57,22 +60,64 @@ func (g *CSSSelectorFeedGenerator) LoadOptions(options config.GeneratorOptions) 
 	return nil
 }
 
-func (g *CSSSelectorFeedGenerator) Generate(feed *feeds.Feed, context *generator.Context) error {
-	baseURL, err := url.Parse(g.config.URL)
+func (g *TemplateFeedGenerator) Generate(feed *feeds.Feed, context *generator.Context) (err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("failed to generate: %v", rec)
+		}
+	}()
+	err = g.generate(feed, context)
+	return
+}
+
+func (g *TemplateFeedGenerator) generate(feed *feeds.Feed, context *generator.Context) error {
+	context.TemplateContext.AddFuncs(map[string]interface{}{
+		"ReplaceAll": func(old, new, s string) string {
+			return strings.ReplaceAll(s, old, new)
+		},
+		"Attr": func(attr string, input *Selection) string {
+			return input.Attr(attr)
+		},
+		"Text": func(input *Selection) string {
+			return input.Text()
+		},
+	})
+
+	baseURL, err := url.Parse(g.config.URL.MustEvaluate(context.TemplateContext))
 	if err != nil {
 		return err
 	}
+	context.TemplateContext.Set("URL", baseURL.String())
 
-	doc, err := newSelectionFromURL(g.config.URL)
+	doc, err := newSelectionFromURL(baseURL.String())
 	if err != nil {
 		return err
 	}
+	context.TemplateContext.Set("Content", doc)
 
-	templateContext, err := newContext(baseURL, doc, &g.config.Feed, &g.config.Item)
+	/*
+	 * Feed
+	 */
+	feed.Id = g.config.Feed.ID.MustEvaluate(context.TemplateContext)
+	feed.Title = g.config.Feed.Title.MustEvaluate(context.TemplateContext)
+	feed.Link = &feeds.Link{
+		Href: g.config.Feed.Link.Href.MustEvaluate(context.TemplateContext),
+	}
+	feed.Author = &feeds.Author{
+		Name:  g.config.Feed.Author.Name.MustEvaluate(context.TemplateContext),
+		Email: g.config.Feed.Author.Email.MustEvaluate(context.TemplateContext),
+	}
+	feed.Description = g.config.Feed.Description.MustEvaluate(context.TemplateContext)
+	feed.Created = time.Now()
+	feed.Updated = feed.Created
+
+	/*
+	 * Items
+	 */
+	itemContents, err := doc.List(g.config.List.MustEvaluate(context.TemplateContext))
 	if err != nil {
 		return err
 	}
-
 	g.config.Item.Link.HREF.ResultMapper = func(link string) (string, error) {
 		link = strings.TrimSpace(link)
 		linkURL, err := url.Parse(link)
@@ -84,41 +129,24 @@ func (g *CSSSelectorFeedGenerator) Generate(feed *feeds.Feed, context *generator
 		}
 		return link, nil
 	}
-
-	/*
-	 * Feed
-	 */
-	feed.Id = g.config.Feed.ID.String()
-	feed.Title = g.config.Feed.Title.String()
-	feed.Link = &feeds.Link{
-		Href: g.config.Feed.Link.Href.String(),
-	}
-	feed.Author = &feeds.Author{
-		Name:  g.config.Feed.Author.Name.String(),
-		Email: g.config.Feed.Author.Email.String(),
-	}
-	feed.Description = g.config.Feed.Description.String()
-	feed.Created = time.Now()
-	feed.Updated = feed.Created
-
-	/*
-	 * Items
-	 */
-	itemContents, err := doc.List(g.config.List)
-	if err != nil {
-		return err
-	}
 	for i, itemContent := range itemContents {
 		if g.config.Limit > 0 && i >= g.config.Limit {
 			break
 		}
-		templateContext.prepare(itemContent)
+		itemScopeContext := context.TemplateContext.Child()
+		itemScopeContext.Set("ItemContent", itemContent)
+		itemScopeContext.Set("LinkContent", newSelectionFromFactory(func() (*goquery.Selection, error) {
+			if g.config.Item.Link.HREF.IsDefined() {
+				return loadDocument(g.config.Item.Link.HREF.MustEvaluate(itemScopeContext))
+			}
+			return nil, fmt.Errorf("'link' not defined in config file")
+		}))
 
-		id := g.config.Item.ID.String()
-		title := g.config.Item.Title.String()
-		description := g.config.Item.Description.String()
-		author := g.config.Item.Author.String()
-		link := g.config.Item.Link.HREF.String()
+		id := g.config.Item.ID.MustEvaluate(itemScopeContext)
+		title := g.config.Item.Title.MustEvaluate(itemScopeContext)
+		description := g.config.Item.Description.MustEvaluate(itemScopeContext)
+		author := g.config.Item.Author.MustEvaluate(itemScopeContext)
+		link := g.config.Item.Link.HREF.MustEvaluate(itemScopeContext)
 
 		// Get cache or create new feed item
 		var key repo.Key
@@ -136,7 +164,7 @@ func (g *CSSSelectorFeedGenerator) Generate(feed *feeds.Feed, context *generator
 				item.Author = &feeds.Author{
 					Name: author,
 				}
-				item.Content = g.config.Item.Content.String()
+				item.Content = g.config.Item.Content.MustEvaluate(itemScopeContext)
 				item.Link = &feeds.Link{
 					Href: link,
 				}
