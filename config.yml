@@ -13,7 +13,8 @@ generators:
       id: '{{ .ItemContent.Select "a[id*=issue]" | Attr "id" }}'
       title: '{{ .ItemContent.Select "a[id*=issue]" }}'
       description: null
-      author: '{{ .ItemContent.Select ".opened-by>a" }}'
+      author:
+        name: '{{ .ItemContent.Select ".opened-by>a" }}'
       link:
         href: '{{ .ItemContent.Select "a[id*=issue]" | Attr "href" }}'
       content: |
@@ -32,6 +33,7 @@ generators:
     url: https://jjug.doorkeeper.jp/events/upcoming
     list: 'div.global-event-list-day'
     item:
+      id: '{{ .ItemContent.Select ".events-list-item-title a" | Attr "href"}}'
       title: .events-list-item-title
       description: |
           {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | Trim }}

@@ -19,7 +19,7 @@ type (
 
 	FeedGenerator interface {
 		LoadOptions(options config.GeneratorOptions) error
-		Generate(feed *feeds.Feed, context *Context) error
+		Generate(context *Context) (*feeds.Feed, error)
 	}
 
 	feedGeneratorWrapper struct {
@@ -85,12 +85,11 @@ func (f *FeedGenerators) Generate(name string) (*feeds.Feed, error) {
 		return nil, fmt.Errorf("generator not found: %s", name)
 	}
 	gen := wrapper.generator
-	feed := new(feeds.Feed)
 
 	context := &Context{f.repository, f.templateContext.Child()}
-	context.TemplateContext.Set("Feed", feed)
-	if err := gen.Generate(feed, context); err != nil {
+	if feed, err := gen.Generate(context); err == nil {
+		return feed, nil
+	} else {
 		return nil, err
 	}
-	return feed, nil
 }
