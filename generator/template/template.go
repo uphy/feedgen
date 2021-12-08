@@ -47,7 +47,6 @@ type (
 		Link    struct {
 			HREF tmpl.TemplateField `yaml:"href"`
 		} `yaml:"link"`
-		Keys []string `yaml:"keys"`
 	}
 	TemplateFeedGenerator struct {
 		config *TemplateFeedGeneratorConfig
@@ -75,6 +74,7 @@ func (g *TemplateFeedGenerator) Generate(context *generator.Context) (feed *feed
 }
 
 func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Feed, error) {
+	currentTemplateContext := context.TemplateContext
 	context.TemplateContext.AddFuncs(map[string]interface{}{
 		"ReplaceAll": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
@@ -82,45 +82,45 @@ func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Fee
 		"Attr": func(attr string, input *Selection) string {
 			return input.Attr(attr)
 		},
-		"Text": func(input *Selection) string {
-			return input.Text()
+		"Text": func(input interface{}) string {
+			return toString(currentTemplateContext, input)
 		},
 	})
 
-	baseURL, err := url.Parse(g.config.URL.MustEvaluate(context.TemplateContext))
+	baseURL, err := url.Parse(g.config.URL.MustEvaluate(currentTemplateContext))
 	if err != nil {
 		return nil, err
 	}
-	context.TemplateContext.Set("URL", baseURL.String())
+	currentTemplateContext.Set("URL", baseURL.String())
 
 	doc, err := newSelectionFromURL(baseURL.String())
 	if err != nil {
 		return nil, err
 	}
-	context.TemplateContext.Set("Content", doc)
+	currentTemplateContext.Set("Content", doc)
 
 	/*
 	 * Feed
 	 */
 	feed := new(feeds.Feed)
-	context.TemplateContext.Set("Feed", feed)
-	feed.Id = g.config.Feed.ID.MustEvaluate(context.TemplateContext)
+	currentTemplateContext.Set("Feed", feed)
+	feed.Id = g.config.Feed.ID.MustEvaluate(currentTemplateContext)
 	if feedCache, err := context.Repository.Feed.GetFeed(repo.IDKey(feed.Id)); err == nil {
 		if feedCache == nil {
-			feed.Title = g.config.Feed.Title.MustEvaluate(context.TemplateContext)
+			feed.Title = g.config.Feed.Title.MustEvaluate(currentTemplateContext)
 			feed.Link = &feeds.Link{
-				Href: g.config.Feed.Link.Href.MustEvaluate(context.TemplateContext),
+				Href: g.config.Feed.Link.Href.MustEvaluate(currentTemplateContext),
 			}
 			feed.Author = &feeds.Author{
-				Name:  g.config.Feed.Author.Name.MustEvaluate(context.TemplateContext),
-				Email: g.config.Feed.Author.Email.MustEvaluate(context.TemplateContext),
+				Name:  g.config.Feed.Author.Name.MustEvaluate(currentTemplateContext),
+				Email: g.config.Feed.Author.Email.MustEvaluate(currentTemplateContext),
 			}
-			feed.Description = g.config.Feed.Description.MustEvaluate(context.TemplateContext)
+			feed.Description = g.config.Feed.Description.MustEvaluate(currentTemplateContext)
 			feed.Created = time.Now()
 			feed.Updated = feed.Created
 		} else {
 			feed = feedCache
-			context.TemplateContext.Set("Feed", feed)
+			currentTemplateContext.Set("Feed", feed)
 		}
 	} else {
 		return nil, err
@@ -129,7 +129,8 @@ func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Fee
 	/*
 	 * Items
 	 */
-	itemContents, err := doc.List(g.config.List.MustEvaluate(context.TemplateContext))
+	currentTemplateContext.Set("Item", g.config.Item)
+	itemContents, err := doc.List(g.config.List.MustEvaluate(currentTemplateContext))
 	if err != nil {
 		return nil, err
 	}
@@ -150,19 +151,19 @@ func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Fee
 		}
 
 		// prepare template context for the item
-		itemScopeContext := context.TemplateContext.Child()
-		itemScopeContext.Set("ItemContent", itemContent)
-		itemScopeContext.Set("LinkContent", newSelectionFromFactory(func() (*goquery.Selection, error) {
+		currentTemplateContext = context.TemplateContext.Child()
+		currentTemplateContext.Set("ItemContent", itemContent)
+		currentTemplateContext.Set("LinkContent", newSelectionFromFactory(func() (*goquery.Selection, error) {
 			if g.config.Item.Link.HREF.IsDefined() {
-				return loadDocument(g.config.Item.Link.HREF.MustEvaluate(itemScopeContext))
+				return loadDocument(g.config.Item.Link.HREF.MustEvaluate(currentTemplateContext))
 			}
 			return nil, fmt.Errorf("'link' not defined in config file")
 		}))
 
 		// Evaluate 'id' first for getting cache.
-		id := g.config.Item.ID.MustEvaluate(itemScopeContext)
+		id := g.config.Item.ID.MustEvaluate(currentTemplateContext)
 		if len(id) == 0 {
-			id = g.config.Item.Link.HREF.MustEvaluate(itemScopeContext)
+			id = g.config.Item.Link.HREF.MustEvaluate(currentTemplateContext)
 			if len(id) == 0 {
 				return nil, errors.New("'id' or 'link.href' is required")
 			}
@@ -174,13 +175,13 @@ func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Fee
 			if item == nil {
 				item = new(feeds.Item)
 				item.Id = id
-				item.Title = g.config.Item.Title.MustEvaluate(itemScopeContext)
-				item.Description = g.config.Item.Description.MustEvaluate(itemScopeContext)
+				item.Title = g.config.Item.Title.MustEvaluate(currentTemplateContext)
+				item.Description = g.config.Item.Description.MustEvaluate(currentTemplateContext)
 				item.Author = &feeds.Author{
-					Name: g.config.Item.Author.Name.MustEvaluate(itemScopeContext),
+					Name: g.config.Item.Author.Name.MustEvaluate(currentTemplateContext),
 				}
-				link := g.config.Item.Link.HREF.MustEvaluate(itemScopeContext)
-				item.Content = g.config.Item.Content.MustEvaluate(itemScopeContext)
+				link := g.config.Item.Link.HREF.MustEvaluate(currentTemplateContext)
+				item.Content = g.config.Item.Content.MustEvaluate(currentTemplateContext)
 				item.Link = &feeds.Link{
 					Href: link,
 				}
@@ -196,4 +197,14 @@ func (g *TemplateFeedGenerator) generate(context *generator.Context) (*feeds.Fee
 		}
 	}
 	return feed, nil
+}
+
+func toString(templateContext *tmpl.TemplateContext, i interface{}) string {
+	switch v := i.(type) {
+	case *Selection:
+		return v.Text()
+	case tmpl.TemplateField:
+		return v.MustEvaluate(templateContext)
+	}
+	return fmt.Sprint(i)
 }

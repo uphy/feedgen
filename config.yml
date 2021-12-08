@@ -20,7 +20,6 @@ generators:
       content: |
           <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
           {{ (.LinkContent.Select "td.d-block").First.HTML }}
-      keys: [title, author]
     limit: 10
   doorkeeper-jsug:
     type: template
@@ -33,8 +32,8 @@ generators:
     url: https://jjug.doorkeeper.jp/events/upcoming
     list: 'div.global-event-list-day'
     item:
-      id: '{{ .ItemContent.Select ".events-list-item-title a" | Attr "href"}}'
-      title: .events-list-item-title
+      id: '{{ .Item.Link.HREF | Text }}'
+      title: '{{ .ItemContent.Select ".events-list-item-title" }}'
       description: |
           {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | Trim }}
           {{ .ItemContent.Select "div.events-list-item-venue" | Text | ReplaceAll "\n" " " | Trim -}}
