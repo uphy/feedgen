@@ -1,4 +1,4 @@
-package cssselector
+package template
 
 import (
 	"bytes"
@@ -77,8 +77,16 @@ func newTemplateFieldValue(template string) *templateFieldValue {
 
 func (f *templateFieldValue) init(context *TemplateContext) error {
 	if parsed, err := template.New("tmpl").Funcs(template.FuncMap{
-		"ReplaceAll": strings.ReplaceAll,
-		"TrimSpace":  strings.TrimSpace,
+		"ReplaceAll": func(old, new, s string) string {
+			return strings.ReplaceAll(s, old, new)
+		},
+		"TrimSpace": strings.TrimSpace,
+		"Attr": func(attr string, input *Selection) string {
+			return input.Attr(attr)
+		},
+		"Text": func(input *Selection) string {
+			return input.Text()
+		},
 	}).Parse(f.rawTemplate); err != nil {
 		return fmt.Errorf("failed to parse template: err=%w", err)
 	} else {

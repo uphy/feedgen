@@ -1,4 +1,4 @@
-package cssselector
+package template
 
 import (
 	"fmt"

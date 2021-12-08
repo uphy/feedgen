@@ -1,4 +1,4 @@
-package cssselector
+package template
 
 import (
 	"fmt"
@@ -15,12 +15,6 @@ type (
 	FieldValue interface {
 		init(templateContext *TemplateContext) error
 		get() (string, error)
-	}
-	fieldYaml struct {
-		Selector string `yaml:"selector"`
-		Attr     string `yaml:"attr"`
-		Template string `yaml:"template"`
-		Constant string `yaml:"constant"`
 	}
 )
 
@@ -81,30 +75,10 @@ func (f *Field) clearCache() {
 }
 
 func (f *Field) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var fieldYaml fieldYaml
-	if err := unmarshal(&fieldYaml); err == nil {
-		if fieldYaml.Selector != "" && fieldYaml.Template != "" {
-			return fmt.Errorf("cannot use both 'selector' and 'template'")
-		}
-		if fieldYaml.Template != "" {
-			if fieldYaml.Attr != "" {
-				return fmt.Errorf("cannot use both 'template' and 'attr'")
-			}
-			f.value = newTemplateFieldValue(fieldYaml.Template)
-			return nil
-		}
-		if fieldYaml.Constant != "" {
-			f.value = newConstantFieldValue(fieldYaml.Constant)
-			return nil
-		}
-		f.value = newSelectorFieldValue(fieldYaml.Selector, fieldYaml.Attr)
-		return nil
-	}
-
-	var selector string
-	if err := unmarshal(&selector); err != nil {
+	var template string
+	if err := unmarshal(&template); err != nil {
 		return err
 	}
-	f.value = newSelectorFieldValue(selector, "")
+	f.value = newTemplateFieldValue(template)
 	return nil
 }

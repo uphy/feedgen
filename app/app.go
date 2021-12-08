@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/uphy/feedgen/config"
 	"github.com/uphy/feedgen/generator"
-	"github.com/uphy/feedgen/generator/cssselector"
+	"github.com/uphy/feedgen/generator/template"
 	"github.com/uphy/feedgen/repo"
 	"github.com/urfave/cli/v2"
 )
@@ -53,7 +53,7 @@ func New() *App {
 		}
 		// build feed generator
 		gen := generator.New(app.repository)
-		gen.Register("css-selector", cssselector.CSSSelectorFeedGenerator{})
+		gen.Register("template", template.CSSSelectorFeedGenerator{})
 		if err := gen.LoadConfig(cnf); err != nil {
 			return err
 		}

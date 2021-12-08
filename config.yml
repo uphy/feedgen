@@ -1,54 +1,40 @@
 generators:
   github-issues-obsidian-reminder:
-    type: css-selector
+    type: template
     url: https://github.com/uphy/obsidian-reminder/issues
     feed:
-      title: 
-        template: GitHub Issues - {{ (.Content.Select "#repository-container-header [itemprop='name']>a").Text }}
+      title: GitHub Issues - {{ (.Content.Select "#repository-container-header [itemprop='name']>a").Text }}
       link:
-        href: 
-          template: '{{ .URL }}'
+        href: '{{ .URL }}'
       author: 
-        name: 
-          constant: GitHub
+        name: GitHub
     list: 'div[id*=issue_]'
     item:
-      id:
-        selector: a[id*=issue]
-        attr: id
-      title: a[id*=issue]
+      id: '{{ .ItemContent.Select "a[id*=issue]" | Attr "id" }}'
+      title: '{{ .ItemContent.Select "a[id*=issue]" }}'
       description: null
-      author: .opened-by>a
+      author: '{{ .ItemContent.Select ".opened-by>a" }}'
       link:
-        href:
-          selector: a[id*=issue]
-          attr: href
-      content:
-        template: |
+        href: '{{ .ItemContent.Select "a[id*=issue]" | Attr "href" }}'
+      content: |
           <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
           {{ (.LinkContent.Select "td.d-block").First.HTML }}
       keys: [title, author]
     limit: 10
   doorkeeper-jsug:
-    type: css-selector
+    type: template
     feed:
-      title: 
-        template: 'Doorkeeper Upcoming events - {{ .Content.Select ".community-title>a" }}'
+      title: 'Doorkeeper Upcoming events - {{ .Content.Select ".community-title>a" }}'
       link:
-        href: 
-          template: '{{ .URL }}'
+        href: '{{ .URL }}'
       author: 
-        name:
-          constant: Doorkeeper
+        name: Doorkeeper
     url: https://jjug.doorkeeper.jp/events/upcoming
     list: 'div.global-event-list-day'
     item:
       title: .events-list-item-title
-      description:
-        template: |
-          {{ ReplaceAll (.ItemContent.Select ".events-list-item-time").Text "\n" " " | TrimSpace }}
-          {{ ReplaceAll (.ItemContent.Select "div.events-list-item-venue").Text "\n" " " | TrimSpace -}}
+      description: |
+          {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | TrimSpace }}
+          {{ .ItemContent.Select "div.events-list-item-venue" | Text | ReplaceAll "\n" " " | TrimSpace -}}
       link:
-        href:
-          selector: .events-list-item-title a
-          attr: href
+        href: '{{ .ItemContent.Select ".events-list-item-title a" | Attr "href"}}'
