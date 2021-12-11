@@ -1,9 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/labstack/echo/v4"
 	"github.com/uphy/feedgen/config"
 	"github.com/uphy/feedgen/converter"
@@ -16,12 +22,15 @@ import (
 type App struct {
 	app           *cli.App
 	repository    *repo.Repository
+	configFile    string
 	feedGenerator *generator.FeedGenerators
 }
 
 func New() *App {
 	a := cli.NewApp()
-	app := &App{a, nil, nil}
+	app := &App{
+		app: a,
+	}
 
 	a.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -49,18 +58,8 @@ func New() *App {
 
 		// load config
 		configFile := c.String("config")
-		cnf, err := config.ParseConfig(configFile)
-		if err != nil {
-			return fmt.Errorf("failed to load config file: configFile=%s, err=%w", configFile, err)
-		}
-		// build feed generator
-		gen := generator.New(app.repository)
-		gen.Register("template", template.TemplateFeedGenerator{})
-		if err := gen.LoadConfig(cnf); err != nil {
-			return err
-		}
-		app.feedGenerator = gen
-		return nil
+		app.configFile = configFile
+		return app.reloadConfig()
 	}
 	a.After = func(c *cli.Context) error {
 		app.repository.Close()
@@ -72,6 +71,22 @@ func New() *App {
 		app.startServerCommand(),
 	}
 	return app
+}
+
+func (a *App) reloadConfig() error {
+	// load config
+	cnf, err := config.ParseConfig(a.configFile)
+	if err != nil {
+		return fmt.Errorf("failed to load config file: configFile=%s, err=%w", a.configFile, err)
+	}
+	// build feed generator
+	gen := generator.New(a.repository)
+	gen.Register("template", template.TemplateFeedGenerator{})
+	if err := gen.LoadConfig(cnf); err != nil {
+		return err
+	}
+	a.feedGenerator = gen
+	return nil
 }
 
 func (a *App) generateCommand() *cli.Command {
@@ -136,35 +151,93 @@ func (a *App) startServerCommand() *cli.Command {
 				EnvVars: []string{"FEED_GEN_PORT"},
 				Value:   8080,
 			},
+			&cli.BoolFlag{
+				Name:    "watch",
+				Aliases: []string{"w"},
+			},
 		},
 		Action: func(c *cli.Context) error {
 			port := c.Int("port")
+			watch := c.Bool("watch")
 
-			e := echo.New()
-			for name, g := range a.feedGenerator.Generators {
-				generatorName := name
-				e.GET(g.Endpoint, func(c echo.Context) error {
-					parameters := make(map[string]string)
-					for _, paramName := range c.ParamNames() {
-						parameters[paramName] = c.Param(paramName)
+			restartCh := make(chan struct{}, 1)
+			if watch {
+				go a.watchConfigFile(func() {
+					log.Println("Reload config")
+					if err := a.reloadConfig(); err != nil {
+						log.Printf("Failed to reload config: %s", err)
+						return
 					}
-					format := c.QueryParam("format")
-					if format == "" {
-						format = "rss"
-					}
-					result, err := a.generateFeed(generatorName, format, parameters)
-					if err != nil {
-						c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
-						return err
-					}
-					return c.Blob(200, result.ContentType, []byte(result.Result))
+					log.Println("Restart server")
+					restartCh <- struct{}{}
 				})
 			}
-			e.Start(fmt.Sprintf(":%d", port))
+
+			sig := make(chan os.Signal, 1)
+			signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+		l:
+			for {
+				stopCh := make(chan struct{}, 1)
+				go a.startServer(port, stopCh)
+				select {
+				case <-sig:
+					break l
+				case <-restartCh:
+					stopCh <- struct{}{}
+				}
+			}
 			return nil
 		},
 	}
 }
+
+func (a *App) startServer(port int, stopChan <-chan struct{}) {
+	e := echo.New()
+	e.HideBanner = true
+	for name, g := range a.feedGenerator.Generators {
+		generatorName := name
+		e.GET(g.Endpoint, func(c echo.Context) error {
+			parameters := make(map[string]string)
+			for _, paramName := range c.ParamNames() {
+				parameters[paramName] = c.Param(paramName)
+			}
+			format := c.QueryParam("format")
+			if format == "" {
+				format = "rss"
+			}
+			result, err := a.generateFeed(generatorName, format, parameters)
+			if err != nil {
+				c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
+				return err
+			}
+			return c.Blob(200, result.ContentType, []byte(result.Result))
+		})
+	}
+
+	log.Printf("Start server at %d", port)
+	go e.Start(fmt.Sprintf(":%d", port))
+
+	<-stopChan
+	log.Println("Shutdown server")
+	e.Shutdown(context.TODO())
+}
+
+func (a *App) watchConfigFile(onChange func()) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	watcher.Add(a.configFile)
+
+	for event := range watcher.Events {
+		if event.Op&fsnotify.Write == fsnotify.Write {
+			onChange()
+		}
+	}
+	return nil
+}
+
 func (a *App) Run(args []string) error {
 	return a.app.Run(args)
 }
