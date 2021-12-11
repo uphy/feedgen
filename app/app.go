@@ -2,9 +2,11 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/uphy/feedgen/config"
+	"github.com/uphy/feedgen/converter"
 	"github.com/uphy/feedgen/generator"
 	"github.com/uphy/feedgen/generator/template"
 	"github.com/uphy/feedgen/repo"
@@ -82,43 +84,47 @@ func (a *App) generateCommand() *cli.Command {
 				Value:   "atom",
 				Usage:   "Export format (atom/rss)",
 			},
+			&cli.StringSliceFlag{
+				Name:    "parameter",
+				Aliases: []string{"p"},
+				Usage:   "Parameter for the generators",
+			},
 		},
 		ArgsUsage: "Name of the feed in config file",
 		Action: func(c *cli.Context) error {
 			format := c.String("format")
 			feedName := c.Args().First()
 
-			s, err := a.generateFeed(feedName, format)
+			parameterMap := make(map[string]string, 0)
+			parameters := c.StringSlice("parameter")
+			for _, parameter := range parameters {
+				eqIndex := strings.Index(parameter, "=")
+				key := parameter[0:eqIndex]
+				value := parameter[eqIndex+1:]
+				parameterMap[key] = value
+			}
+
+			result, err := a.generateFeed(feedName, format, parameterMap)
 			if err != nil {
 				return err
 			}
-			fmt.Println(s)
+			fmt.Println(result.Result)
 			return nil
 		},
 	}
 }
 
-func (a *App) generateFeed(feedName string, format string) (string, error) {
-	feed, err := a.feedGenerator.Generate(feedName)
+func (a *App) generateFeed(feedName string, format string, parameters map[string]string) (*converter.Result, error) {
+	feed, err := a.feedGenerator.Generate(feedName, parameters)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	switch format {
-	case "atom":
-		atom, err := feed.ToAtom()
-		if err != nil {
-			return "", err
-		}
-		return atom, nil
-	case "rss":
-		rss, err := feed.ToRss()
-		if err != nil {
-			return "", err
-		}
-		return rss, nil
+	converter := converter.GetConverter(format)
+	if converter == nil {
+		return nil, fmt.Errorf("unsupported format: %s", format)
 	}
-	return "", nil
+	return converter.Convert(feed)
 }
 
 func (a *App) startServerCommand() *cli.Command {
@@ -135,16 +141,25 @@ func (a *App) startServerCommand() *cli.Command {
 			port := c.Int("port")
 
 			e := echo.New()
-			e.GET("feed/:name/:format", func(c echo.Context) error {
-				name := c.Param("name")
-				format := c.Param("format")
-				s, err := a.generateFeed(name, format)
-				if err != nil {
-					c.Logger().Error("failed to generate: name=%s, err=%w", name, err)
-					return err
-				}
-				return c.Blob(200, "application/xml", []byte(s))
-			})
+			for name, g := range a.feedGenerator.Generators {
+				generatorName := name
+				e.GET(g.Endpoint, func(c echo.Context) error {
+					parameters := make(map[string]string)
+					for _, paramName := range c.ParamNames() {
+						parameters[paramName] = c.Param(paramName)
+					}
+					format := c.QueryParam("format")
+					if format == "" {
+						format = "rss"
+					}
+					result, err := a.generateFeed(generatorName, format, parameters)
+					if err != nil {
+						c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
+						return err
+					}
+					return c.Blob(200, result.ContentType, []byte(result.Result))
+				})
+			}
 			e.Start(fmt.Sprintf(":%d", port))
 			return nil
 		},

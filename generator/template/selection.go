@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/PuerkitoBio/goquery"
@@ -20,9 +21,13 @@ func loadDocument(url string) (*goquery.Selection, error) {
 		return nil, fmt.Errorf("failed on GET request: %w", err)
 	}
 	defer resp.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	return loadDocumentFromReader(resp.Body)
+}
+
+func loadDocumentFromReader(reader io.Reader) (*goquery.Selection, error) {
+	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse document: %w", err)
+		return nil, fmt.Errorf("failed to load document: %w", err)
 	}
 	return doc.Selection, nil
 }
@@ -37,11 +42,11 @@ func newSelection(selection *goquery.Selection) *Selection {
 	})
 }
 
-func newSelectionFromURL(url string) (*Selection, error) {
-	if s, err := loadDocument(url); err == nil {
+func newSelectionFromReader(reader io.Reader) (*Selection, error) {
+	if s, err := loadDocumentFromReader(reader); err == nil {
 		return newSelection(s), nil
 	} else {
-		return nil, fmt.Errorf("failed to load document: url=%s, err=%w", url, err)
+		return nil, err
 	}
 }
 

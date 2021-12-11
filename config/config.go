@@ -4,14 +4,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/uphy/feedgen/template"
 	"gopkg.in/yaml.v2"
 )
 
 type (
 	Config struct {
+		Include    []string                    `yaml:"include"`
 		Generators map[string]*GeneratorConfig `yaml:"generators"`
 	}
 	GeneratorConfig struct {
+		Endpoint template.TemplateField
+
 		Type    string
 		Options GeneratorOptions
 	}
@@ -26,6 +30,14 @@ func ParseConfig(file string) (*Config, error) {
 	defer f.Close()
 	var c Config
 	if err := yaml.NewDecoder(f).Decode(&c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func ParseGeneratorConfig(b []byte) (*GeneratorConfig, error) {
+	var c GeneratorConfig
+	if err := yaml.Unmarshal(b, &c); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -52,10 +64,17 @@ func (c *GeneratorConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 		return fmt.Errorf("'type' must be a string: %v", m)
 	}
 
+	if e, exist := m["endpoint"]; exist {
+		if endpoint, ok := e.(string); ok {
+			c.Endpoint = template.NewTemplateField(endpoint)
+			delete(m, "endpoint")
+		} else {
+			return fmt.Errorf("'endpoint' must be a string: %v", m)
+		}
+	} else {
+		return fmt.Errorf("'endpoint' is required")
+	}
+
 	c.Options = m
 	return nil
-}
-
-func (c *GeneratorConfig) MarshalYAML() ([]byte, error) {
-	return nil, nil
 }

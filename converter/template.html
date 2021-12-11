@@ -1,0 +1,97 @@
+<html>
+
+<head>
+    <title>{{ .Feed.Title }}</title>
+    <style>
+        .item {
+            margin-bottom: 1rem;
+        }
+
+        .item-title {
+            border-bottom: 2px solid black;
+            width: 100%;
+        }
+
+        .item-content {
+            border: 1px solid black;
+            max-width: 500px;
+            padding: 1rem;
+        }
+
+        .item-content img {
+            max-width: 500px;
+        }
+
+        .item-content video {
+            max-width: 500px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>{{ .Feed.Title }}</h1>
+    <div>
+        <h2>Feed</h2>
+        <ul>
+            <li>ID: {{ .Feed.Id }}</li>
+            <li>Title: {{ .Feed.Title }}</li>
+            <li>Link:
+                <ul>
+                    <li>HREF: <a href="{{ .Feed.Link.Href }}">{{ .Feed.Link.Href }}</a></li>
+                    <li>Rel: {{ .Feed.Link.Rel }}</li>
+                    <li>Type: {{ .Feed.Link.Type }}</li>
+                    <li>Length: {{ .Feed.Link.Length }}</li>
+                </ul>
+            </li>
+            <li>Subtitle: {{ .Feed.Subtitle }}</li>
+            <li>Description: {{ .Feed.Description }}</li>
+            <li>Author:
+                <ul>
+                    <li>Name: {{ .Feed.Author.Name }}</li>
+                    <li>E-mail: {{ .Feed.Author.Email }}</li>
+                </ul>
+            </li>
+            <li>Created: {{ .Feed.Created }}</li>
+            <li>Updated: {{ .Feed.Updated }}</li>
+            <li>Copyright: {{ .Feed.Copyright }}</li>
+            <li>Image: {{ .Feed.Image }}</li>
+        </ul>
+    </div>
+    <div>
+        <h2>Items</h2>
+        {{- range $index, $item := .Feed.Items -}}
+        <div class="item">
+            <h3 class="item-title">{{ $item.Title }}</h3>
+            <ul>
+                <li>ID: {{ $item.Id }}</li>
+                <li>Title: {{ $item.Title }}</li>
+                <li>Description: {{ $item.Description }}</li>
+                <li>Link:
+                    <ul>
+                        <li>HREF: <a href="{{ $item.Link.Href }}">{{ $item.Link.Href }}</a></li>
+                        <li>Rel: {{ $item.Link.Rel }}</li>
+                        <li>Type: {{ $item.Link.Type }}</li>
+                        <li>Length: {{ $item.Link.Length }}</li>
+                    </ul>
+                </li>
+                <li>Author:
+                    <ul>
+                        <li>Name: {{ $item.Author.Name }}</li>
+                        <li>E-mail: {{ $item.Author.Email }}</li>
+                    </ul>
+                </li>
+                <li>Created: {{ $item.Created }}</li>
+                <li>Updated: {{ $item.Updated }}</li>
+                <li>Source: {{ $item.Source }}</li>
+                <li>Enclosure: {{ $item.Enclosure }}</li>
+            </ul>
+            <h4>Content</h4>
+            <div class="item-content">
+                {{ $item.Content | html }}
+            </div>
+        </div>
+        {{- end -}}
+    </div>
+</body>
+
+</html>

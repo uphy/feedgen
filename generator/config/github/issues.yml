@@ -1,0 +1,22 @@
+endpoint: "github/issues/:user/:repo"
+type: template
+source:
+  http: https://github.com/{{ Param "user" }}/{{ Param "repo" }}/issues
+feed:
+  title: GitHub Issues - {{ Param "repo" }}
+  link:
+    href: "{{ .URL }}"
+  author:
+    name: GitHub
+list: "div[id*=issue_]"
+item:
+  id: '{{ .ItemContent.Select "a[id*=issue]" | Attr "id" }}'
+  title: '{{ .ItemContent.Select "a[id*=issue]" }}'
+  description: null
+  author:
+    name: '{{ .ItemContent.Select ".opened-by>a" }}'
+  link:
+    href: '{{ .ItemContent.Select "a[id*=issue]" | Attr "href" }}'
+  content: |
+    <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
+    {{ (.LinkContent.Select "td.d-block").First.HTML }}

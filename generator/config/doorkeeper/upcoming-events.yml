@@ -1,0 +1,19 @@
+endpoint: "doorkeeper/events/upcoming/:community"
+type: template
+feed:
+  title: 'Doorkeeper Upcoming events - {{ .Content.Select ".community-title>a" }}'
+  link:
+    href: "{{ .URL }}"
+  author:
+    name: Doorkeeper
+source:
+  http: https://{{ Param "community" }}.doorkeeper.jp/events/upcoming
+list: "div.global-event-list-day"
+item:
+  id: "{{ .Item.Link.HREF | Text }}"
+  title: '{{ .ItemContent.Select ".events-list-item-title" }}'
+  description: |
+    {{ .ItemContent.Select ".events-list-item-time" | Text | ReplaceAll "\n" " " | Trim }}
+    {{ .ItemContent.Select "div.events-list-item-venue" | Text | ReplaceAll "\n" " " | Trim -}}
+  link:
+    href: '{{ .ItemContent.Select ".events-list-item-title a" | Attr "href"}}'
