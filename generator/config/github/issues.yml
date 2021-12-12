@@ -8,15 +8,19 @@ feed:
     href: "{{ .URL }}"
   author:
     name: GitHub
+  image:
+    url: '{{ .Content.Select ".js-site-favicon[type=\"image/png\"]" | Attr "href" }}'
 list: "div[id*=issue_]"
 item:
   id: '{{ .ItemContent.Select "a[id*=issue]" | Attr "id" }}'
   title: '{{ .ItemContent.Select "a[id*=issue]" }}'
-  description: null
   author:
     name: '{{ .ItemContent.Select ".opened-by>a" }}'
   link:
     href: '{{ .ItemContent.Select "a[id*=issue]" | Attr "href" }}'
+  description: '{{ (.LinkContent.Select "td.d-block").First.Text | Truncate 100 }}'
   content: |
-    <img src="{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}">
+    <img src="{{ .Item.Enclosure.URL | Text }}">
     {{ (.LinkContent.Select "td.d-block").First.HTML }}
+  enclosure:
+    url: '{{ (.LinkContent.Select "meta[name=\"twitter:image:src\"]").Attr "content" }}'

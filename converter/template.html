@@ -46,15 +46,31 @@
             <li>Subtitle: {{ .Feed.Subtitle }}</li>
             <li>Description: {{ .Feed.Description }}</li>
             <li>Author:
+                {{ if .Feed.Author }}
                 <ul>
                     <li>Name: {{ .Feed.Author.Name }}</li>
                     <li>E-mail: {{ .Feed.Author.Email }}</li>
                 </ul>
+                {{ else }}
+                Not set
+                {{ end }}
             </li>
             <li>Created: {{ .Feed.Created }}</li>
             <li>Updated: {{ .Feed.Updated }}</li>
             <li>Copyright: {{ .Feed.Copyright }}</li>
-            <li>Image: {{ .Feed.Image }}</li>
+            <li>Image:
+                {{ if .Feed.Image }}
+                <ul>
+                    <li>URL: <a href="{{ .Feed.Image.Url }}">{{ .Feed.Image.Url }}</a></li>
+                    <li>Title: {{ .Feed.Image.Title }}</a></li>
+                    <li>Link: <a href="{{ .Feed.Image.Link }}">{{ .Feed.Image.Link }}</a></li>
+                    <li>Width: {{ .Feed.Image.Width }}</a></li>
+                    <li>Height: {{ .Feed.Image.Height }}</a></li>
+                </ul>
+                {{ else }}
+                Not set
+                {{ end }}
+            </li>
         </ul>
     </div>
     <div>
@@ -67,23 +83,52 @@
                 <li>Title: {{ $item.Title }}</li>
                 <li>Description: {{ $item.Description }}</li>
                 <li>Link:
+                    {{ if $item.Link }}
                     <ul>
                         <li>HREF: <a href="{{ $item.Link.Href }}">{{ $item.Link.Href }}</a></li>
                         <li>Rel: {{ $item.Link.Rel }}</li>
                         <li>Type: {{ $item.Link.Type }}</li>
                         <li>Length: {{ $item.Link.Length }}</li>
                     </ul>
+                    {{ else }}
+                    Not set
+                    {{ end }}
                 </li>
                 <li>Author:
+                    {{ if $item.Author }}
                     <ul>
                         <li>Name: {{ $item.Author.Name }}</li>
                         <li>E-mail: {{ $item.Author.Email }}</li>
                     </ul>
+                    {{ else }}
+                    Not set
+                    {{ end }}
                 </li>
                 <li>Created: {{ $item.Created }}</li>
                 <li>Updated: {{ $item.Updated }}</li>
-                <li>Source: {{ $item.Source }}</li>
-                <li>Enclosure: {{ $item.Enclosure }}</li>
+                <li>Source:
+                    {{ if $item.Source }}
+                    <ul>
+                        <li>HREF: <a href="{{ $item.Source.Href }}">{{ $item.Source.Href }}</a></li>
+                        <li>Rel: {{ $item.Source.Rel }}</li>
+                        <li>Type: {{ $item.Source.Type }}</li>
+                        <li>Length: {{ $item.Source.Length }}</li>
+                    </ul>
+                    {{ else }}
+                    Not set
+                    {{ end }}
+                </li>                
+                <li>Enclosure: 
+                    {{ if $item.Enclosure }}
+                    <ul>
+                        <li>URL: <a href="{{ $item.Enclosure.Url }}">{{ $item.Enclosure.Url }}</a></li>
+                        <li>Type: {{ $item.Enclosure.Type }}</li>
+                        <li>Length: {{ $item.Enclosure.Length }}</li>
+                    </ul>
+                    {{ else }}
+                    Not set
+                    {{ end }}
+                </li>
             </ul>
             <h4>Content</h4>
             <div class="item-content">

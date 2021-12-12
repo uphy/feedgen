@@ -26,28 +26,45 @@ type (
 		Limit  int                `yaml:"limit"`
 	}
 	FeedConfig struct {
-		ID    tmpl.TemplateField `yaml:"id"`
-		Title tmpl.TemplateField `yaml:"title"`
-		Link  struct {
-			Href tmpl.TemplateField `yaml:"href"`
-		} `yaml:"link"`
+		ID          tmpl.TemplateField `yaml:"id"`
+		Title       tmpl.TemplateField `yaml:"title"`
+		Subtitle    tmpl.TemplateField `yaml:"subtitle"`
+		Link        LinkConfig         `yaml:"link"`
 		Description tmpl.TemplateField `yaml:"description"`
-		Author      struct {
-			Name  tmpl.TemplateField `yaml:"name"`
-			Email tmpl.TemplateField `yaml:"email"`
-		} `yaml:"author"`
+		Author      AuthorConfig       `yaml:"author"`
+		Copyright   tmpl.TemplateField `yaml:"copyright"`
+		Image       struct {
+			// URL is the URL of the image
+			URL    tmpl.TemplateField `yaml:"url"`
+			Title  tmpl.TemplateField `yaml:"title"`
+			Link   tmpl.TemplateField `yaml:"link"`
+			Width  int                `yaml:"width"`
+			Height int                `yaml:"height"`
+		} `yaml:"image"`
 	}
 	ItemConfig struct {
 		ID          tmpl.TemplateField `yaml:"id"`
 		Title       tmpl.TemplateField `yaml:"title"`
 		Description tmpl.TemplateField `yaml:"description"`
-		Author      struct {
-			Name tmpl.TemplateField `yaml:"name"`
-		} `yaml:"author"`
-		Content tmpl.TemplateField `yaml:"content"`
-		Link    struct {
-			HREF tmpl.TemplateField `yaml:"href"`
-		} `yaml:"link"`
+		Author      AuthorConfig       `yaml:"author"`
+		Content     tmpl.TemplateField `yaml:"content"`
+		Link        LinkConfig         `yaml:"link"`
+		Source      LinkConfig         `yaml:"source"`
+		Enclosure   struct {
+			URL    tmpl.TemplateField `yaml:"url"`
+			Length tmpl.TemplateField `yaml:"length"`
+			Type   tmpl.TemplateField `yaml:"type"`
+		} `yaml:"enclosure"`
+	}
+	LinkConfig struct {
+		HREF   tmpl.TemplateField `yaml:"href"`
+		REL    tmpl.TemplateField `yaml:"rel"`
+		Type   tmpl.TemplateField `yaml:"type"`
+		Length tmpl.TemplateField `yaml:"length"`
+	}
+	AuthorConfig struct {
+		Name  tmpl.TemplateField `yaml:"name"`
+		Email tmpl.TemplateField `yaml:"email"`
 	}
 	TemplateFeedGenerator struct {
 		config *TemplateFeedGeneratorConfig
@@ -175,14 +192,21 @@ func (g *TemplateFeedGenerator) loadFeed(context *tmpl.TemplateContext, reposito
 	if feedCache, err := repository.Feed.GetFeed(repo.IDKey(feed.Id)); err == nil {
 		if feedCache == nil {
 			feed.Title = g.config.Feed.Title.MustEvaluate(context)
-			feed.Link = &feeds.Link{
-				Href: g.config.Feed.Link.Href.MustEvaluate(context),
-			}
-			feed.Author = &feeds.Author{
-				Name:  g.config.Feed.Author.Name.MustEvaluate(context),
-				Email: g.config.Feed.Author.Email.MustEvaluate(context),
-			}
+			feed.Subtitle = g.config.Feed.Subtitle.MustEvaluate(context)
+			feed.Link = g.loadLink(context, &g.config.Feed.Link)
+			feed.Author = g.loadAuthor(context, &g.config.Feed.Author)
 			feed.Description = g.config.Feed.Description.MustEvaluate(context)
+			feed.Copyright = g.config.Feed.Copyright.MustEvaluate(context)
+			imageURL := g.config.Feed.Image.URL.MustEvaluate(context)
+			if len(imageURL) > 0 {
+				feed.Image = &feeds.Image{
+					Url:    imageURL,
+					Title:  g.config.Feed.Image.Title.MustEvaluate(context),
+					Link:   g.config.Feed.Image.Link.MustEvaluate(context),
+					Width:  g.config.Feed.Image.Width,
+					Height: g.config.Feed.Image.Height,
+				}
+			}
 			feed.Created = time.Now()
 			feed.Updated = feed.Created
 		} else {
@@ -193,6 +217,26 @@ func (g *TemplateFeedGenerator) loadFeed(context *tmpl.TemplateContext, reposito
 		return nil, err
 	}
 	return feed, nil
+}
+
+func (g *TemplateFeedGenerator) loadAuthor(context *tmpl.TemplateContext, author *AuthorConfig) *feeds.Author {
+	return &feeds.Author{
+		Name:  author.Name.MustEvaluate(context),
+		Email: author.Email.MustEvaluate(context),
+	}
+}
+
+func (g *TemplateFeedGenerator) loadLink(context *tmpl.TemplateContext, link *LinkConfig) *feeds.Link {
+	href := link.HREF.MustEvaluate(context)
+	if len(href) == 0 {
+		return nil
+	}
+	return &feeds.Link{
+		Href:   href,
+		Length: link.Length.MustEvaluate(context),
+		Type:   link.Type.MustEvaluate(context),
+		Rel:    link.REL.MustEvaluate(context),
+	}
 }
 
 func (g *TemplateFeedGenerator) loadItem(context *tmpl.TemplateContext, repository *repo.Repository, itemContent *Selection) (*feeds.Item, error) {
@@ -221,13 +265,25 @@ func (g *TemplateFeedGenerator) loadItem(context *tmpl.TemplateContext, reposito
 			item.Id = id
 			item.Title = g.config.Item.Title.MustEvaluate(context)
 			item.Description = g.config.Item.Description.MustEvaluate(context)
-			item.Author = &feeds.Author{
-				Name: g.config.Item.Author.Name.MustEvaluate(context),
-			}
-			link := g.config.Item.Link.HREF.MustEvaluate(context)
+			item.Author = g.loadAuthor(context, &g.config.Item.Author)
 			item.Content = g.config.Item.Content.MustEvaluate(context)
-			item.Link = &feeds.Link{
-				Href: link,
+			item.Link = g.loadLink(context, &g.config.Item.Link)
+			item.Source = g.loadLink(context, &g.config.Item.Source)
+			enclosureURL := g.config.Item.Enclosure.URL.MustEvaluate(context)
+			if len(enclosureURL) > 0 {
+				enclosureType := g.config.Item.Enclosure.Type.MustEvaluate(context)
+				enclosureLength := g.config.Item.Enclosure.Length.MustEvaluate(context)
+				if len(enclosureType) == 0 {
+					enclosureType = "false"
+				}
+				if len(enclosureLength) == 0 {
+					enclosureLength = "0"
+				}
+				item.Enclosure = &feeds.Enclosure{
+					Url:    enclosureURL,
+					Type:   enclosureType,
+					Length: enclosureLength,
+				}
 			}
 			item.Created = time.Now()
 			item.Updated = item.Created
