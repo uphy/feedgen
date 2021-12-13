@@ -19,6 +19,7 @@ FROM scratch as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/bin/main /app/main
+COPY config.yml /app/
 WORKDIR /app
 
 ENTRYPOINT ["/app/main"]

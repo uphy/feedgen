@@ -167,7 +167,7 @@ func (a *App) startServerCommand() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.IntFlag{
 				Name:    "port",
-				EnvVars: []string{"FEED_GEN_PORT"},
+				EnvVars: []string{"FEED_GEN_PORT", "PORT"},
 				Value:   8080,
 			},
 			&cli.BoolFlag{
