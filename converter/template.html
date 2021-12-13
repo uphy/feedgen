@@ -1,6 +1,8 @@
+<!DOCTYPE html>
 <html>
 
 <head>
+    <meta charset="UTF-8">
     <title>{{ .Feed.Title }}</title>
     <style>
         .item {
@@ -117,8 +119,8 @@
                     {{ else }}
                     Not set
                     {{ end }}
-                </li>                
-                <li>Enclosure: 
+                </li>
+                <li>Enclosure:
                     {{ if $item.Enclosure }}
                     <ul>
                         <li>URL: <a href="{{ $item.Enclosure.Url }}">{{ $item.Enclosure.Url }}</a></li>

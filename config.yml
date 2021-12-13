@@ -1,3 +1,4 @@
 include:
   - github/issues
+  - github/trending
   - doorkeeper/upcoming-events

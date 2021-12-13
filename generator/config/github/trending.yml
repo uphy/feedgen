@@ -1,0 +1,21 @@
+# Query Parameters:
+# - spoken_lauguage_code: ja, en, ...
+# - since: monthly, weekly, daily
+endpoint: "github/trending/:language"
+type: template
+source:
+  http: https://github.com/trending/{{ Param "language" }}?{{ QueryParams }}
+feed:
+  title: GitHub Trending - {{ Param "language" }}
+  link:
+    href: "{{ .URL }}"
+  author:
+    name: GitHub
+  image:
+    url: '{{ .Content.Select ".js-site-favicon[type=\"image/png\"]" | Attr "href" }}'
+list: "article.Box-row"
+item:
+  title: '{{ .ItemContent.Select "h1>a" | Text }}'
+  link:
+    href: '{{ .ItemContent.Select "h1>a" | Attr "href" }}'
+  description: '{{ .ItemContent.Select "p" | Text }}'

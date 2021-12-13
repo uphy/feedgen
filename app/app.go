@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -104,6 +105,11 @@ func (a *App) generateCommand() *cli.Command {
 				Aliases: []string{"p"},
 				Usage:   "Parameter for the generators",
 			},
+			&cli.StringSliceFlag{
+				Name:    "query-parameter",
+				Aliases: []string{"q"},
+				Usage:   "Query parameter for the generators",
+			},
 		},
 		ArgsUsage: "Name of the feed in config file",
 		Action: func(c *cli.Context) error {
@@ -111,15 +117,28 @@ func (a *App) generateCommand() *cli.Command {
 			feedName := c.Args().First()
 
 			parameterMap := make(map[string]string, 0)
-			parameters := c.StringSlice("parameter")
-			for _, parameter := range parameters {
-				eqIndex := strings.Index(parameter, "=")
-				key := parameter[0:eqIndex]
-				value := parameter[eqIndex+1:]
-				parameterMap[key] = value
+			{
+				parameters := c.StringSlice("parameter")
+				for _, parameter := range parameters {
+					eqIndex := strings.Index(parameter, "=")
+					key := parameter[0:eqIndex]
+					value := parameter[eqIndex+1:]
+					parameterMap[key] = value
+				}
 			}
 
-			result, err := a.generateFeed(feedName, format, parameterMap)
+			queryParams := make(url.Values, 0)
+			{
+				parameters := c.StringSlice("query-parameter")
+				for _, parameter := range parameters {
+					eqIndex := strings.Index(parameter, "=")
+					key := parameter[0:eqIndex]
+					value := parameter[eqIndex+1:]
+					queryParams.Add(key, value)
+				}
+			}
+
+			result, err := a.generateFeed(feedName, format, parameterMap, queryParams)
 			if err != nil {
 				return err
 			}
@@ -129,8 +148,8 @@ func (a *App) generateCommand() *cli.Command {
 	}
 }
 
-func (a *App) generateFeed(feedName string, format string, parameters map[string]string) (*converter.Result, error) {
-	feed, err := a.feedGenerator.Generate(feedName, parameters)
+func (a *App) generateFeed(feedName string, format string, parameters map[string]string, queryParameters url.Values) (*converter.Result, error) {
+	feed, err := a.feedGenerator.Generate(feedName, parameters, queryParameters)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +224,7 @@ func (a *App) startServer(port int, stopChan <-chan struct{}) {
 			if format == "" {
 				format = "rss"
 			}
-			result, err := a.generateFeed(generatorName, format, parameters)
+			result, err := a.generateFeed(generatorName, format, parameters, c.QueryParams())
 			if err != nil {
 				c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
 				return err

@@ -3,6 +3,7 @@ package generator
 import (
 	"embed"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"reflect"
 
@@ -114,7 +115,7 @@ func (f *FeedGenerators) loadGeneratorConfig(generatorName string, generatorConf
 	return nil
 }
 
-func (f *FeedGenerators) Generate(name string, parameters map[string]string) (*feeds.Feed, error) {
+func (f *FeedGenerators) Generate(name string, parameters map[string]string, queryParameters url.Values) (*feeds.Feed, error) {
 	wrapper, ok := f.Generators[name]
 	if !ok {
 		return nil, fmt.Errorf("generator not found: %s", name)
@@ -123,6 +124,7 @@ func (f *FeedGenerators) Generate(name string, parameters map[string]string) (*f
 
 	context := &Context{f.repository, f.templateContext.Child()}
 	context.TemplateContext.Set("Parameters", parameters)
+	context.TemplateContext.Set("QueryParameters", queryParameters)
 	context.TemplateContext.AddFuncs(map[string]interface{}{
 		"Param": func(name string) *string {
 			if value, exist := parameters[name]; exist {
@@ -130,6 +132,18 @@ func (f *FeedGenerators) Generate(name string, parameters map[string]string) (*f
 			} else {
 				return nil
 			}
+		},
+		"QueryParam": func(name string) *string {
+			if queryParameters.Has(name) {
+				value := queryParameters.Get(name)
+				return &value
+			} else {
+				return nil
+			}
+		},
+		"QueryParams": func() *string {
+			p := queryParameters.Encode()
+			return &p
 		},
 	})
 	if feed, err := gen.Generate(context); err == nil {

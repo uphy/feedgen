@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 )
 
 var globalFuncs = map[string]interface{}{
@@ -54,6 +55,14 @@ var globalFuncs = map[string]interface{}{
 	"FormatEpochMillis": func(epochMillis float64) string {
 		n := int64(epochMillis) * 1000000
 		return time.Unix(0, n).Format("2006/01/02 15:04")
+	},
+	"Capitalize": func(s string) string {
+		r := []rune(s)
+		if len(r) == 0 {
+			return s
+		}
+		r[0] = unicode.ToUpper(r[0])
+		return string(r)
 	},
 }
 
