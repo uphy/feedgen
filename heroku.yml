@@ -2,4 +2,4 @@ build:
   docker:
     web: Dockerfile.heroku
 run:
-  web: feedgen start-server
+  web: feedgen --no-sandbox start-server

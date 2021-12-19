@@ -11,11 +11,15 @@ ARG CGO_ENABLED=0
 ARG GOOS=linux
 ARG GOARCH=amd64
 RUN go build \
-    -o /bin/feedgen \
+    -o /go/bin/main \
     -ldflags '-s -w'
 
-WORKDIR /app
-COPY config.yml /app/
+FROM chromedp/headless-shell as runner
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /go/bin/main /bin/feedgen
+COPY config.yml /app/
+WORKDIR /app
 # Cannot use ENTRYPOINT with heroku.yml
 # ENTRYPOINT ["feedgen"]
+ENTRYPOINT []

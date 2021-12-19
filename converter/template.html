@@ -38,12 +38,16 @@
             <li>ID: {{ .Feed.Id }}</li>
             <li>Title: {{ .Feed.Title }}</li>
             <li>Link:
+                {{ if .Feed.Link }}
                 <ul>
                     <li>HREF: <a href="{{ .Feed.Link.Href }}">{{ .Feed.Link.Href }}</a></li>
                     <li>Rel: {{ .Feed.Link.Rel }}</li>
                     <li>Type: {{ .Feed.Link.Type }}</li>
                     <li>Length: {{ .Feed.Link.Length }}</li>
                 </ul>
+                {{ else }}
+                Not set
+                {{ end }}
             </li>
             <li>Subtitle: {{ .Feed.Subtitle }}</li>
             <li>Description: {{ .Feed.Description }}</li>

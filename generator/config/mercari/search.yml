@@ -1,0 +1,32 @@
+endpoint: "mercari/search/:keyword"
+type: browser
+url: https://jp.mercari.com/search?sort=created_time&order=desc&status=on_sale&keyword={{ Param "keyword" }}
+actions:
+  - waitVisible: mer-item-thumbnail
+  - feed: |
+      (function(){
+        const title = document.querySelector('mer-search-input').getAttribute('value');
+        return {
+          title: `mercari search: ${title}`
+        };
+      }())
+  - items: |
+      Array.from(document.querySelectorAll('#item-grid>li'))
+        .map(li => {
+            const link = "https://jp.mercari.com" + li.querySelector('a').getAttribute('href');
+            const merItemThumbnail = li.querySelector('mer-item-thumbnail').shadowRoot;
+            const price = merItemThumbnail.querySelector('mer-price').getAttribute("value");
+            const title = merItemThumbnail.querySelector('.item-name')?.textContent + " ¥" + price;
+            const image = merItemThumbnail.querySelector('figure.item-thumbnail>picture>img').getAttribute("src");
+            return {
+                title,
+                image,
+                content: `<img src=${image}>`,
+                link: {
+                  href: link
+                }
+            };
+        });
+browser:
+  visible: false
+  timeout: 30s

@@ -15,7 +15,7 @@ RUN go build \
     -ldflags '-s -w'
 
 
-FROM scratch as runner
+FROM chromedp/headless-shell as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/bin/main /app/main

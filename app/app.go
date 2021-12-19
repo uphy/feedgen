@@ -15,6 +15,7 @@ import (
 	"github.com/uphy/feedgen/config"
 	"github.com/uphy/feedgen/converter"
 	"github.com/uphy/feedgen/generator"
+	"github.com/uphy/feedgen/generator/browser"
 	"github.com/uphy/feedgen/generator/template"
 	"github.com/uphy/feedgen/repo"
 	"github.com/urfave/cli/v2"
@@ -44,6 +45,10 @@ func New() *App {
 			Aliases: []string{"n"},
 			Value:   false,
 		},
+		&cli.BoolFlag{
+			Name:  "no-sandbox",
+			Value: false,
+		},
 	}
 	a.Before = func(c *cli.Context) error {
 		// load repository
@@ -60,7 +65,7 @@ func New() *App {
 		// load config
 		configFile := c.String("config")
 		app.configFile = configFile
-		return app.reloadConfig()
+		return app.reloadConfig(c)
 	}
 	a.After = func(c *cli.Context) error {
 		app.repository.Close()
@@ -74,7 +79,7 @@ func New() *App {
 	return app
 }
 
-func (a *App) reloadConfig() error {
+func (a *App) reloadConfig(c *cli.Context) error {
 	// load config
 	cnf, err := config.ParseConfig(a.configFile)
 	if err != nil {
@@ -83,6 +88,10 @@ func (a *App) reloadConfig() error {
 	// build feed generator
 	gen := generator.New(a.repository)
 	gen.Register("template", template.TemplateFeedGenerator{})
+	gen.RegisterFactory("browser", func() generator.FeedGenerator {
+		noSandbox := c.Bool("no-sandbox")
+		return browser.New(noSandbox)
+	})
 	if err := gen.LoadConfig(cnf); err != nil {
 		return err
 	}
@@ -183,7 +192,7 @@ func (a *App) startServerCommand() *cli.Command {
 			if watch {
 				go a.watchConfigFile(func() {
 					log.Println("Reload config")
-					if err := a.reloadConfig(); err != nil {
+					if err := a.reloadConfig(c); err != nil {
 						log.Printf("Failed to reload config: %s", err)
 						return
 					}
@@ -214,23 +223,7 @@ func (a *App) startServer(port int, stopChan <-chan struct{}) {
 	e := echo.New()
 	e.HideBanner = true
 	for name, g := range a.feedGenerator.Generators {
-		generatorName := name
-		e.GET(g.Endpoint, func(c echo.Context) error {
-			parameters := make(map[string]string)
-			for _, paramName := range c.ParamNames() {
-				parameters[paramName] = c.Param(paramName)
-			}
-			format := c.QueryParam("format")
-			if format == "" {
-				format = "rss"
-			}
-			result, err := a.generateFeed(generatorName, format, parameters, c.QueryParams())
-			if err != nil {
-				c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
-				return err
-			}
-			return c.Blob(200, result.ContentType, []byte(result.Result))
-		})
+		e.GET(g.Endpoint, a.generateFeedHandlerFunc(name, g))
 	}
 
 	log.Printf("Start server at %d", port)
@@ -239,6 +232,25 @@ func (a *App) startServer(port int, stopChan <-chan struct{}) {
 	<-stopChan
 	log.Println("Shutdown server")
 	e.Shutdown(context.TODO())
+}
+
+func (a *App) generateFeedHandlerFunc(name string, g *generator.FeedGeneratorWrapper) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		parameters := make(map[string]string)
+		for _, paramName := range c.ParamNames() {
+			parameters[paramName] = c.Param(paramName)
+		}
+		format := c.QueryParam("format")
+		if format == "" {
+			format = "rss"
+		}
+		result, err := a.generateFeed(name, format, parameters, c.QueryParams())
+		if err != nil {
+			c.Logger().Errorf("failed to generate: name=%s, err=%s", name, err)
+			return err
+		}
+		return c.Blob(200, result.ContentType, []byte(result.Result))
+	}
 }
 
 func (a *App) watchConfigFile(onChange func()) error {

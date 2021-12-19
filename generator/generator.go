@@ -62,10 +62,14 @@ func findPreDefinedGeneratorConfig(name string) (*config.GeneratorConfig, error)
 
 func (f *FeedGenerators) Register(name string, v interface{}) {
 	t := reflect.TypeOf(v)
-	f.registry[name] = func() FeedGenerator {
+	f.RegisterFactory(name, func() FeedGenerator {
 		v := reflect.New(t).Interface()
 		return v.(FeedGenerator)
-	}
+	})
+}
+
+func (f *FeedGenerators) RegisterFactory(name string, factory func() FeedGenerator) {
+	f.registry[name] = factory
 }
 
 func (f *FeedGenerators) newGenerator(c *config.GeneratorConfig) (FeedGenerator, error) {
